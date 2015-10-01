@@ -1,0 +1,102 @@
+---
+title: "dplyr and tidyr manipulations"
+author: "Devin Pastoor"
+date: '`r Sys.Date()`'
+output: word_document
+---
+
+
+```{r libraries}
+# required libraries
+library("PKPDmisc")
+library("dplyr")
+library("tidyr")
+library("ggplot2")
+library("readr")
+library("knitr")
+```
+
+```{r readdata}
+demog <- read_csv("data/demog.csv")
+etacov <- read_csv("data/EtaCov_base.csv")%>% select(-Scenario)
+pkdata <- read_csv("data/ORAL.csv")
+```
+
+```{r}
+kable(head(demog))
+kable(head(etacov))
+kable(head(pkdata, n = 12))
+```
+
+## Task 1
+
+* merge pkdata and demog data
+* identify which id's not present in both and show relevent information
+
+check for those not in 1 dataset but present in the other
+```{r}
+anti_join(pkdata, demog, by="ID")
+anti_join(demog, pkdata, by = "ID")
+```
+
+```{r}
+pkdemog <- inner_join(pkdata, demog)
+```
+
+
+## Task 2
+
+Calculate summary stats for mean concentration time profile by dose level and gender
+
+```{r}
+pkdemog <- rename(pkdemog, GENDER = SEX, CONC = DV)
+
+mean_conctime <-  pkdemog %>% 
+    filter(!is.na(CONC))%>% 
+    group_by(DOSE, GENDER, TIME) %>% 
+    summarize(mean_conc = mean(CONC))
+```
+
+```{r}
+kable(mean_conctime)
+```
+
+```{r}
+mean_conctime %>%
+    ggplot(aes(x = TIME, y = mean_conc, color = factor(GENDER), linetype = factor(DOSE))) +
+    geom_line(size = 1.1) + geom_point(size = 4) +
+    labs(list(x = "Time, hours", y = "Concentration, mg/L")) +
+    theme_bw() + base_theme() +
+    scale_linetype_discrete(name = "Dose (mg)") +
+    scale_color_discrete(name = "Gender") +
+    theme(legend.justification=c(1,1), legend.position=c(1,1)) 
+```
+
+## Task 3
+
+```{r}
+g_etacov <- etacov %>% gather(EtaName, EtaValue, -ID)
+g_etacov <- etacov %>% gather(EtaName, EtaValue, nV, nCl, nKa) %>%
+    group_by(EtaName) %>% mutate(q05 = quantile(EtaValue, probs = 0.05),
+                                 mean = mean(EtaValue),
+                                 q95 = quantile(EtaValue, probs = 0.95))
+
+g_etacov %>% gather(quantile, value, q05:q95) %>%
+    ggplot(aes(x = EtaValue, group = EtaName)) +
+   geom_histogram(color = "black", fill = "white") +
+    geom_density(color = "black", fill = "white") +
+    facet_wrap(~EtaName) + 
+    geom_vline(aes(xintercept = value), 
+               linetype = 2, 
+               color = "blue", 
+               size = 1.1, 
+               alpha =0.5) +
+    theme_bw() + 
+    base_theme()
+```
+
+
+
+```{r}
+devtools::session_info()
+```
