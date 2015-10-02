@@ -18,13 +18,13 @@ library("knitr")
 
 ```{r readdata}
 demog <- read_csv("data/demog.csv")
-etacov <- read_csv("data/EtaCov_base.csv")%>% select(-Scenario)
+eta <- read_csv("data/EtaCov_base.csv")%>% select(-Scenario)
 pkdata <- read_csv("data/ORAL.csv")
 ```
 
 ```{r}
 kable(head(demog))
-kable(head(etacov))
+kable(head(eta))
 kable(head(pkdata, n = 12))
 ```
 
@@ -41,6 +41,7 @@ anti_join(demog, pkdata, by = "ID")
 
 ```{r}
 pkdemog <- inner_join(pkdata, demog)
+kable(pkdemog)
 ```
 
 
@@ -54,7 +55,7 @@ pkdemog <- rename(pkdemog, GENDER = SEX, CONC = DV)
 mean_conctime <-  pkdemog %>% 
     filter(!is.na(CONC))%>% 
     group_by(DOSE, GENDER, TIME) %>% 
-    summarize(mean_conc = mean(CONC))
+    summarize(mean_conc = round(mean(CONC),2))
 ```
 
 ```{r}
@@ -75,13 +76,18 @@ mean_conctime %>%
 ## Task 3
 
 ```{r}
-g_etacov <- etacov %>% gather(EtaName, EtaValue, -ID)
-g_etacov <- etacov %>% gather(EtaName, EtaValue, nV, nCl, nKa) %>%
+g_eta <- eta %>% gather(EtaName, EtaValue, -(ID:AGE))
+
+kable(rbind(head(g_eta), tail(g_eta)))
+g_eta_summary <- eta %>% gather(EtaName, EtaValue, nV, nCl, nKa) %>%
     group_by(EtaName) %>% mutate(q05 = quantile(EtaValue, probs = 0.05),
                                  mean = mean(EtaValue),
                                  q95 = quantile(EtaValue, probs = 0.95))
 
-g_etacov %>% gather(quantile, value, q05:q95) %>%
+kable(rbind(head(g_eta_summary), tail(g_eta_summary)))
+
+
+g_eta_summary %>% gather(quantile, value, q05:q95) %>%
     ggplot(aes(x = EtaValue, group = EtaName)) +
    geom_histogram(color = "black", fill = "white") +
     geom_density(color = "black", fill = "white") +
