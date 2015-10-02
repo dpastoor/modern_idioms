@@ -1,0 +1,94 @@
+---
+title: "tidyr reshape manipulations"
+author: "Devin Pastoor"
+date: '`r Sys.Date()`'
+output: word_document
+---
+
+
+```{r libraries}
+# required libraries
+library("PKPDmisc")
+library("plyr")
+library("reshape2")
+library("ggplot2")
+library("readr")
+library("knitr")
+```
+
+```{r readdata}
+demog <- read_csv("data/demog.csv")
+eta <- read_csv("data/EtaCov_base.csv")
+eta <- eta[, -1]
+pkdata <- read_csv("data/ORAL.csv")
+```
+
+```{r}
+kable(head(demog))
+kable(head(eta))
+kable(head(pkdata, n = 12))
+```
+
+## Task 1
+
+* merge pkdata and demog data
+* identify which id's not present in both and show relevent information
+
+check for those not in 1 dataset but present in the other
+```{r}
+setdiff(pkdata$ID, demog$ID)
+setdiff(demog$ID, pkdata$ID)
+
+demog[demog$ID %in% setdiff(demog$ID, pkdata$ID),]
+```
+
+```{r}
+pkdemog <- merge(pkdata, demog)
+kable(head(pkdemog))
+```
+
+
+## Task 2
+
+Calculate summary stats for mean concentration time profile by dose level and gender
+
+```{r}
+#names(pkdemog)[names(pkdemog) %in% c("DV", "SEX")] <- c("CONC", "GENDER")
+
+pkdemog <- rename(pkdemog, replace = c("DV" = "CONC", "SEX" = "GENDER"))
+
+clean_pkdemog <- subset(pkdemog, !is.na(CONC))
+
+mean_conctime <- ddply(clean_pkdemog, .(DOSE, GENDER, TIME), 
+      summarize,
+      mean_conc = round(mean(CONC),2))
+```
+
+## Task 3
+
+```{r}
+#melt(eta, id=1:3)
+melt(eta, id.vars=c("ID", "WT", "AGE"), 
+     variable.name="EtaName", 
+     value.name = "EtaValue")
+
+m_eta <- melt(eta, measure.vars=c("nV", "nCl", "nKa"), 
+     variable.name="EtaName", 
+     value.name = "EtaValue")
+
+
+
+g_eta_summary <- ddply(m_eta, .(EtaName), mutate,
+                    q05 = quantile(EtaValue, probs = 0.05),
+                     mean = mean(EtaValue),
+                     q95 = quantile(EtaValue, probs = 0.95)) 
+
+mg_eta_summary <- melt(g_eta_summary, measure.vars = c("q05", "mean", "q95"),
+                       variable.name = "quantile", values.name = "value")
+```
+
+
+
+```{r}
+devtools::session_info()
+```
